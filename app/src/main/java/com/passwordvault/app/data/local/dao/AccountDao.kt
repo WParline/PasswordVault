@@ -21,6 +21,12 @@ interface AccountDao {
     @Query("SELECT * FROM accounts WHERE title LIKE '%' || :query || '%' OR username LIKE '%' || :query || '%' OR url LIKE '%' || :query || '%' ORDER BY updated_at DESC")
     fun searchAccounts(query: String): Flow<List<AccountEntity>>
 
+    @Query("SELECT * FROM accounts WHERE url LIKE '%' || :url || '%'")
+    suspend fun findAccountsByUrl(url: String): List<AccountEntity>
+
+    @Query("SELECT * FROM accounts")
+    suspend fun getAllAccountsSync(): List<AccountEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(account: AccountEntity): Long
 

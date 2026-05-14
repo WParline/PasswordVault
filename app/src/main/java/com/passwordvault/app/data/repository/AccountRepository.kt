@@ -23,4 +23,8 @@ class AccountRepository @Inject constructor(
     suspend fun delete(account: AccountEntity) = accountDao.delete(account)
 
     suspend fun deleteById(id: Long) = accountDao.deleteById(id)
+
+    suspend fun findAccountsByUrl(url: String): List<AccountEntity> = accountDao.findAccountsByUrl(url)
+
+    suspend fun getAllAccountsSync(): List<AccountEntity> = accountDao.getAllAccountsSync()
 }
