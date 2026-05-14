@@ -49,7 +49,7 @@ android {
     applicationVariants.configureEach {
         outputs.configureEach {
             if (this is com.android.build.gradle.internal.api.ApkVariantOutputImpl) {
-                val date = SimpleDateFormat("yyyyMMdd").format(Date())
+                val date = SimpleDateFormat("yyyyMMdd-HHmm").format(Date())
                 outputFileName = "PasswordVault-${versionName}-${date}.apk"
             }
         }

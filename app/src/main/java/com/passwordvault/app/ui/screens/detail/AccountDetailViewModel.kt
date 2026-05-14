@@ -129,7 +129,7 @@ class AccountDetailViewModel @Inject constructor(
                 totpSecret = s.totpSecret,
                 hotpSecret = s.hotpSecret,
                 hotpCounter = s.hotpCounter,
-                createdAt = s.createdAt,
+                createdAt = if (currentId != null) s.createdAt else System.currentTimeMillis(),
                 updatedAt = System.currentTimeMillis()
             )
             if (currentId != null) {
