@@ -25,12 +25,11 @@ data class AccountDetailState(
     val password: String = "",
     val url: String = "",
     val notes: String = "",
-    val totpSecret: String = "",
-    val totpCode: String = "",
-    val totpRemaining: Int = 0,
-    val hotpSecret: String = "",
+    val otpSecret: String = "",
+    val isHotp: Boolean = false,
     val hotpCounter: Long = 0,
-    val hotpCode: String = "",
+    val otpCode: String = "",
+    val totpRemaining: Int = 0,
     val createdAt: Long = 0,
     val updatedAt: Long = 0,
     val isLoading: Boolean = false
@@ -50,12 +49,20 @@ class AccountDetailViewModel @Inject constructor(
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
         .withZone(ZoneId.systemDefault())
 
-    fun loadAccount(accountId: Long, prefilledTotp: String = "") {
-        if (prefilledTotp.isNotBlank()) {
-            _state.update { it.copy(totpSecret = prefilledTotp) }
+    fun loadAccount(accountId: Long, prefilledSeed: String = "") {
+        if (prefilledSeed.isNotBlank()) {
+            val data = TotpGenerator.parseTotpUri(prefilledSeed)
+            if (data != null) {
+                _state.update {
+                    it.copy(otpSecret = data.secret, isHotp = data.isHotp, hotpCounter = data.counter,
+                        title = if (it.title.isBlank()) data.issuer else it.title)
+                }
+            } else {
+                _state.update { it.copy(otpSecret = prefilledSeed) }
+            }
         }
         if (accountId == -1L) {
-            startTotpTimer()
+            startOtpTimer()
             return
         }
         viewModelScope.launch {
@@ -63,8 +70,9 @@ class AccountDetailViewModel @Inject constructor(
             val account = accountRepository.getAccountById(accountId)
             if (account != null) {
                 currentId = account.id
-                val hotpCode = if (account.hotpSecret.isNotBlank())
-                    TotpGenerator.generateHotpCode(account.hotpSecret, account.hotpCounter) else ""
+                val hasHotp = account.hotpSecret.isNotBlank()
+                val secret = if (hasHotp) account.hotpSecret else account.totpSecret
+                val code = if (hasHotp) TotpGenerator.generateHotpCode(account.hotpSecret, account.hotpCounter) else ""
                 _state.update {
                     it.copy(
                         title = account.title,
@@ -72,30 +80,35 @@ class AccountDetailViewModel @Inject constructor(
                         password = account.password,
                         url = account.url,
                         notes = account.notes,
-                        totpSecret = account.totpSecret.ifBlank { prefilledTotp },
-                        hotpSecret = account.hotpSecret,
+                        otpSecret = secret,
+                        isHotp = hasHotp,
                         hotpCounter = account.hotpCounter,
-                        hotpCode = hotpCode,
+                        otpCode = code,
                         createdAt = account.createdAt,
                         updatedAt = account.updatedAt,
                         isLoading = false
                     )
                 }
             }
-            startTotpTimer()
+            startOtpTimer()
         }
     }
 
-    private fun startTotpTimer() {
+    private fun startOtpTimer() {
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
             while (isActive) {
                 delay(1000)
-                val secret = _state.value.totpSecret
-                if (secret.isNotBlank()) {
-                    val code = TotpGenerator.generateCode(secret)
-                    val remaining = TotpGenerator.getRemainingSeconds()
-                    _state.update { it.copy(totpCode = code, totpRemaining = remaining) }
+                val s = _state.value
+                if (s.otpSecret.isNotBlank()) {
+                    if (s.isHotp) {
+                        val code = TotpGenerator.generateHotpCode(s.otpSecret, s.hotpCounter)
+                        _state.update { it.copy(otpCode = code) }
+                    } else {
+                        val code = TotpGenerator.generateCode(s.otpSecret)
+                        val remaining = TotpGenerator.getRemainingSeconds()
+                        _state.update { it.copy(otpCode = code, totpRemaining = remaining) }
+                    }
                 }
             }
         }
@@ -106,14 +119,24 @@ class AccountDetailViewModel @Inject constructor(
     fun onPasswordChanged(v: String) = _state.update { it.copy(password = v) }
     fun onUrlChanged(v: String) = _state.update { it.copy(url = v) }
     fun onNotesChanged(v: String) = _state.update { it.copy(notes = v) }
-    fun onTotpSecretChanged(v: String) = _state.update { it.copy(totpSecret = v.uppercase()) }
-    fun onHotpSecretChanged(v: String) = _state.update { it.copy(hotpSecret = v.uppercase()) }
+
+    fun onOtpSecretChanged(v: String) {
+        val data = TotpGenerator.parseTotpUri(v)
+        if (data != null) {
+            _state.update {
+                it.copy(otpSecret = data.secret, isHotp = data.isHotp, hotpCounter = data.counter,
+                    title = if (it.title.isBlank()) data.issuer else it.title)
+            }
+        } else {
+            _state.update { it.copy(otpSecret = v.uppercase()) }
+        }
+    }
 
     fun generateNextHotp() {
         val s = _state.value
-        if (s.hotpSecret.isBlank()) return
-        val code = TotpGenerator.generateHotpCode(s.hotpSecret, s.hotpCounter)
-        _state.update { it.copy(hotpCounter = s.hotpCounter + 1, hotpCode = code) }
+        if (s.otpSecret.isBlank() || !s.isHotp) return
+        val code = TotpGenerator.generateHotpCode(s.otpSecret, s.hotpCounter)
+        _state.update { it.copy(hotpCounter = s.hotpCounter + 1, otpCode = code) }
     }
 
     fun save() {
@@ -126,26 +149,19 @@ class AccountDetailViewModel @Inject constructor(
                 password = s.password,
                 url = s.url,
                 notes = s.notes,
-                totpSecret = s.totpSecret,
-                hotpSecret = s.hotpSecret,
+                totpSecret = if (!s.isHotp) s.otpSecret else "",
+                hotpSecret = if (s.isHotp) s.otpSecret else "",
                 hotpCounter = s.hotpCounter,
                 createdAt = if (currentId != null) s.createdAt else System.currentTimeMillis(),
                 updatedAt = System.currentTimeMillis()
             )
-            if (currentId != null) {
-                accountRepository.update(entity)
-            } else {
-                accountRepository.insert(entity)
-            }
+            if (currentId != null) accountRepository.update(entity)
+            else accountRepository.insert(entity)
         }
     }
 
     fun delete() {
-        currentId?.let {
-            viewModelScope.launch {
-                accountRepository.deleteById(it)
-            }
-        }
+        currentId?.let { viewModelScope.launch { accountRepository.deleteById(it) } }
     }
 
     fun formatTime(millis: Long): String {

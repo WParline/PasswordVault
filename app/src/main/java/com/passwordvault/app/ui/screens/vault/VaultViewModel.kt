@@ -57,14 +57,13 @@ class VaultViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         accounts = entities.map { e ->
+                            val hasTotp = e.totpSecret.isNotBlank()
+                            val hasHotp = !hasTotp && e.hotpSecret.isNotBlank()
                             VaultAccount(
                                 entity = e,
-                                totpCode = if (e.totpSecret.isNotBlank())
-                                    TotpGenerator.generateCode(e.totpSecret) else "",
-                                totpRemaining = if (e.totpSecret.isNotBlank())
-                                    TotpGenerator.getRemainingSeconds() else 0,
-                                hotpCode = if (e.hotpSecret.isNotBlank())
-                                    TotpGenerator.generateHotpCode(e.hotpSecret, e.hotpCounter) else "",
+                                totpCode = if (hasTotp) TotpGenerator.generateCode(e.totpSecret) else "",
+                                totpRemaining = if (hasTotp) TotpGenerator.getRemainingSeconds() else 0,
+                                hotpCode = if (hasHotp) TotpGenerator.generateHotpCode(e.hotpSecret, e.hotpCounter) else "",
                                 hotpCounter = e.hotpCounter
                             )
                         },

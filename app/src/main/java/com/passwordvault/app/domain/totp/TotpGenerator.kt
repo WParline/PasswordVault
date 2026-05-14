@@ -31,8 +31,13 @@ object TotpGenerator {
     }
 
     fun parseTotpUri(uri: String): TotpUriData? {
-        if (!uri.startsWith("otpauth://totp/")) return null
-        val rest = uri.removePrefix("otpauth://totp/")
+        val prefix = when {
+            uri.startsWith("otpauth://totp/") -> "otpauth://totp/"
+            uri.startsWith("otpauth://hotp/") -> "otpauth://hotp/"
+            else -> return null
+        }
+        val isHotp = uri.startsWith("otpauth://hotp/")
+        val rest = uri.removePrefix(prefix)
         val parts = rest.split("?")
         if (parts.size != 2) return null
         val label = parts[0]
@@ -52,7 +57,9 @@ object TotpGenerator {
             accountName = accountName,
             algorithm = params["algorithm"] ?: "SHA1",
             digits = params["digits"]?.toIntOrNull() ?: 6,
-            period = params["period"]?.toIntOrNull() ?: 30
+            period = params["period"]?.toIntOrNull() ?: 30,
+            isHotp = isHotp,
+            counter = params["counter"]?.toLongOrNull() ?: 0
         )
     }
 
@@ -146,6 +153,8 @@ object TotpGenerator {
         val accountName: String,
         val algorithm: String,
         val digits: Int,
-        val period: Int
+        val period: Int = 30,
+        val isHotp: Boolean = false,
+        val counter: Long = 0
     )
 }

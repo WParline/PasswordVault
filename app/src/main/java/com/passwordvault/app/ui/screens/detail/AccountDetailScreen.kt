@@ -164,26 +164,32 @@ fun AccountDetailScreen(
             HorizontalDivider()
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ── TOTP Section ──
+            // ── OTP Section ──
             Text(
-                text = "TOTP 动态密码 (可选)",
+                text = "OTP 动态密码 (可选)",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary
             )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "支持输入 Base32 密钥或 otpauth:// URI（TOTP / HOTP 自动识别）",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
-                value = state.totpSecret,
-                onValueChange = viewModel::onTotpSecretChanged,
-                label = { Text("TOTP 密钥 (Base32)") },
+                value = state.otpSecret,
+                onValueChange = viewModel::onOtpSecretChanged,
+                label = { Text("OTP 密钥或 URI") },
                 singleLine = true,
-                placeholder = { Text("如 JBSWY3DPEHPK3PXP") },
+                placeholder = { Text("密钥 或 otpauth://...") },
                 modifier = Modifier.fillMaxWidth()
             )
-            if (state.totpCode.isNotBlank()) {
+            if (state.otpSecret.isNotBlank() && state.otpCode.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = state.totpCode,
+                        text = state.otpCode,
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
@@ -191,63 +197,34 @@ fun AccountDetailScreen(
                         ),
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "${state.totpRemaining}s",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    if (state.isHotp) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "HOTP ${state.hotpCounter}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "${state.totpRemaining}s",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                if (!state.isHotp) {
+                    LinearProgressIndicator(
+                        progress = { state.totpRemaining.toFloat() / 30f },
+                        modifier = Modifier.fillMaxWidth(0.5f),
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 }
-                LinearProgressIndicator(
-                    progress = { state.totpRemaining.toFloat() / 30f },
-                    modifier = Modifier.fillMaxWidth(0.5f),
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // ── HOTP Section ──
-            Text(
-                text = "HOTP 事件型 OTP (可选)",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = state.hotpSecret,
-                onValueChange = viewModel::onHotpSecretChanged,
-                label = { Text("HOTP 密钥 (Base32)") },
-                singleLine = true,
-                placeholder = { Text("如 JBSWY3DPEHPK3PXP") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            if (state.hotpSecret.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = state.hotpCode.ifBlank { "------" },
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 4.sp
-                        ),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "计数值: ${state.hotpCounter}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = { viewModel.generateNextHotp() }
-                ) {
-                    Text("生成下一个 HOTP 码")
+                if (state.isHotp) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(onClick = { viewModel.generateNextHotp() }) {
+                        Text("生成下一个 HOTP 码")
+                    }
                 }
             }
 
