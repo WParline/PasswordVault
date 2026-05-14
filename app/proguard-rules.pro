@@ -1,0 +1,4 @@
+-keepattributes *Annotation*
+-keep class com.passwordvault.app.** { *; }
+-keep class net.zetetic.** { *; }
+-dontwarn net.zetetic.**
