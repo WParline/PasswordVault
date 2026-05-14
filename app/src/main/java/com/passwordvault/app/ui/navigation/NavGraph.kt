@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.passwordvault.app.ui.screens.detail.AccountDetailScreen
+import com.passwordvault.app.ui.screens.settings.SettingsScreen
 import com.passwordvault.app.ui.screens.unlock.UnlockScreen
 import com.passwordvault.app.ui.screens.vault.VaultScreen
 
@@ -15,6 +16,7 @@ object Routes {
     const val VAULT = "vault"
     const val ACCOUNT_DETAIL = "account_detail/{accountId}?totpSecret={totpSecret}"
     const val QR_SCANNER = "qr_scanner"
+    const val SETTINGS = "settings"
 
     fun accountDetail(accountId: Long, totpSecret: String = "") =
         "account_detail/$accountId?totpSecret=$totpSecret"
@@ -41,6 +43,9 @@ fun NavGraph() {
                 },
                 onOpenScanner = {
                     navController.navigate(Routes.QR_SCANNER)
+                },
+                onOpenSettings = {
+                    navController.navigate(Routes.SETTINGS)
                 }
             )
         }
@@ -68,6 +73,11 @@ fun NavGraph() {
                         popUpTo(Routes.VAULT)
                     }
                 },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(Routes.SETTINGS) {
+            SettingsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

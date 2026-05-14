@@ -1,7 +1,6 @@
 package com.passwordvault.app.service.autofill
 
 import android.app.assist.AssistStructure
-import android.content.Intent
 import android.os.CancellationSignal
 import android.service.autofill.AutofillService
 import android.service.autofill.Dataset
@@ -13,16 +12,21 @@ import android.service.autofill.SaveInfo
 import android.service.autofill.SaveRequest
 import android.view.autofill.AutofillValue
 import android.widget.RemoteViews
-import android.widget.Toast
 import com.passwordvault.app.data.repository.AccountRepository
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class VaultAutofillService : AutofillService() {
 
     @Inject lateinit var accountRepository: AccountRepository
+
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onFillRequest(request: FillRequest, cancellationSignal: CancellationSignal, callback: FillCallback) {
         val fillContext = request.fillContexts.lastOrNull() ?: run {
@@ -62,57 +66,51 @@ class VaultAutofillService : AutofillService() {
             }
         }
 
-        val missingUsername = usernameIds.isEmpty()
         if (passwordIds.isEmpty()) {
             callback.onSuccess(null)
             return
         }
 
-        val response = runBlocking {
-            buildFillResponse(callingPackage, usernameIds, passwordIds, missingUsername)
-        }
+        scope.launch {
+            try {
+                val matched = accountRepository.findAccountsByUrl(callingPackage)
+                val candidates = if (matched.isNotEmpty()) matched else accountRepository.getAllAccountsSync()
 
-        callback.onSuccess(response)
-    }
+                if (candidates.isEmpty()) {
+                    callback.onSuccess(null)
+                    return@launch
+                }
 
-    private suspend fun buildFillResponse(
-        packageName: String,
-        usernameIds: List<android.view.autofill.AutofillId>,
-        passwordIds: List<android.view.autofill.AutofillId>,
-        missingUsername: Boolean
-    ): FillResponse? {
-        val matched = accountRepository.findAccountsByUrl(packageName)
-        val candidates = if (matched.isNotEmpty()) matched else accountRepository.getAllAccountsSync()
-        if (candidates.isEmpty()) return null
+                val builder = FillResponse.Builder()
 
-        val builder = FillResponse.Builder()
+                for (account in candidates.take(5)) {
+                    val view = RemoteViews(packageName, android.R.layout.simple_list_item_2)
+                    view.setTextViewText(android.R.id.text1, account.username)
+                    view.setTextViewText(android.R.id.text2, account.title)
 
-        for (account in candidates.take(5)) {
-            val view = RemoteViews(packageName, android.R.layout.simple_list_item_2)
-            view.setTextViewText(android.R.id.text1, account.username)
-            view.setTextViewText(android.R.id.text2, account.title)
+                    val dataset = Dataset.Builder()
+                    if (usernameIds.isNotEmpty()) {
+                        dataset.setValue(usernameIds[0], AutofillValue.forText(account.username))
+                    }
+                    dataset.setValue(passwordIds[0], AutofillValue.forText(account.password))
+                    builder.addDataset(dataset.build())
+                }
 
-            val dataset = Dataset.Builder(view)
+                val allIds = usernameIds + passwordIds
+                if (allIds.isNotEmpty()) {
+                    builder.setSaveInfo(
+                        SaveInfo.Builder(
+                            SaveInfo.SAVE_DATA_TYPE_USERNAME or SaveInfo.SAVE_DATA_TYPE_PASSWORD,
+                            allIds.toTypedArray()
+                        ).build()
+                    )
+                }
 
-            if (usernameIds.isNotEmpty()) {
-                dataset.setValue(usernameIds[0], AutofillValue.forText(account.username))
+                callback.onSuccess(builder.build())
+            } catch (e: Exception) {
+                callback.onSuccess(null)
             }
-            dataset.setValue(passwordIds[0], AutofillValue.forText(account.password))
-
-            builder.addDataset(dataset.build())
         }
-
-        val allIds = usernameIds + passwordIds
-        if (allIds.isNotEmpty()) {
-            builder.setSaveInfo(
-                SaveInfo.Builder(
-                    SaveInfo.SAVE_DATA_TYPE_USERNAME or SaveInfo.SAVE_DATA_TYPE_PASSWORD,
-                    allIds.toTypedArray()
-                ).build()
-            )
-        }
-
-        return builder.build()
     }
 
     private fun traverseNodes(node: AssistStructure.ViewNode, action: (AssistStructure.ViewNode) -> Unit) {
@@ -123,7 +121,11 @@ class VaultAutofillService : AutofillService() {
     }
 
     override fun onSaveRequest(request: SaveRequest, callback: SaveCallback) {
-        Toast.makeText(this, "请在密码库中手动添加此账号", Toast.LENGTH_LONG).show()
         callback.onSuccess()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        scope.cancel()
     }
 }

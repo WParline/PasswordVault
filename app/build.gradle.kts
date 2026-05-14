@@ -1,3 +1,6 @@
+import java.text.SimpleDateFormat
+import java.util.Date
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -41,6 +44,15 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    applicationVariants.configureEach {
+        outputs.configureEach {
+            if (this is com.android.build.gradle.internal.api.ApkVariantOutputImpl) {
+                val date = SimpleDateFormat("yyyyMMdd").format(Date())
+                outputFileName = "PasswordVault-${versionName}-${date}.apk"
+            }
+        }
     }
 }
 

@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,7 +28,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -52,39 +51,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 fun VaultScreen(
     onNavigateToAccount: (Long) -> Unit,
     onOpenScanner: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     viewModel: VaultViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    var showSettings by remember { mutableStateOf(false) }
-
-    if (showSettings) {
-        AlertDialog(
-            onDismissRequest = { showSettings = false },
-            title = { Text("服务设置") },
-            text = {
-                Column {
-                    Text("启用自动填充", style = MaterialTheme.typography.titleSmall)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "设置 -> 搜索「自动填充服务」-> 选择「本地密码库」",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("启用密码检测", style = MaterialTheme.typography.titleSmall)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "设置 → 无障碍 → 已安装的应用 → 本地密码库 → 开启",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showSettings = false }) { Text("知道了") }
-            }
-        )
-    }
 
     Scaffold(
         topBar = {
@@ -98,7 +68,7 @@ fun VaultScreen(
                     IconButton(onClick = onOpenScanner) {
                         Icon(Icons.Default.QrCodeScanner, contentDescription = "扫码添加")
                     }
-                    IconButton(onClick = { showSettings = true }) {
+                    IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "设置")
                     }
                 }
