@@ -9,8 +9,6 @@
 - **HOTP 事件型 OTP** — RFC 4226 标准，计数器递增
 - **QR 扫码添加** — CameraX + ML Kit 扫描二维码，自动解析 `otpauth://` URI
 - **指纹/设备密码解锁** — 基于 KeyguardManager 系统级认证
-- **无障碍密码检测** — AccessibilityService 监听密码输入，提示保存
-- **自动填充** — AutofillFramework 检测登录页面
 
 ## 技术栈
 
@@ -23,6 +21,7 @@
 | 加密 | Android Keystore (AES-256-GCM) + PBKDF2 |
 | TOTP | 自实现 RFC 6238 / RFC 4226 |
 | 扫码 | CameraX + ML Kit Barcode Scanning |
+| APK 命名 | PasswordVault-{version}-{yyyyMMdd-HHmm}.apk |
 | 最低 SDK | API 26 (Android 8.0) |
 | 目标 SDK | API 36 (Android 16) |
 
@@ -46,8 +45,8 @@
 # 调试构建
 ./gradlew assembleDebug
 
-# APK 位置
-app/build/outputs/apk/debug/app-debug.apk
+# APK 位置（文件名含版本号和日期）
+app/build/outputs/apk/debug/PasswordVault-*.apk
 ```
 
 ## 许可证
